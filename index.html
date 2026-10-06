@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Review Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 400px; margin: 20px; position: relative; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        .hidden { display: none; }
+        
+        #qr-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
+        #qr-code-img { max-width: 200px; margin: 10px auto; display: block; border: 10px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        
+        .stars { display: flex; justify-content: center; gap: 10px; flex-direction: row-reverse; }
+        .stars input { display: none; }
+        .stars label { font-size: 45px; color: #ccc; cursor: pointer; transition: color 0.2s; }
+        .stars label:hover, .stars label:hover ~ label, .stars input:checked ~ label { color: #ffc107; }
+        
+        textarea { width: 100%; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; font-family: Arial; resize: vertical;}
+        #shop-logo { max-width: 100px; max-height: 100px; border-radius: 8px; margin-bottom: 10px; }
+        
+        /* New Updates CSS */
+        .branding { margin-top: 30px; font-size: 12px; color: #888; }
+        .branding strong { color: #007bff; }
+        .tip-text { display: block; text-align: left; font-size: 12px; color: #666; margin-top: -5px; margin-bottom: 15px; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. ADMIN SETUP PANEL (Dukaandar ke liye) -->
+    <div class="container" id="admin-panel">
+        <h2 style="color: #007bff;">Create Your Smart QR</h2>
+        <p style="color: #555; font-size: 14px;">Fill details to generate your review QR code.</p>
+        
+        <input type="text" id="shopName" placeholder="Shop Name (e.g. Sharma Dental)" required>
+        <input type="url" id="shopLogo" placeholder="Logo Image URL (Optional)">
+        
+        <!-- Updated: Helper Text added -->
+        <input type="url" id="googleLink" placeholder="Google Review Link" required>
+        <span class="tip-text">💡 Tip: Google Profile par jayein > "Ask for Reviews" par click karein > Link copy karein.</span>
+        
+        <input type="email" id="shopEmail" placeholder="Email for bad feedback" required>
+        <span class="tip-text">💡 Tip: Customer ka negative feedback chupchap is email par aayegi.</span>
+        
+        <button onclick="generateQR()">Generate QR Code</button>
+
+        <div id="qr-section" class="hidden">
+            <h3 style="color: #28a745;">Your QR is Ready! 🎉</h3>
+            <p style="font-size: 13px; color: #666;">Download and print this QR for your counter.</p>
+            <img id="qr-code-img" src="" alt="QR Code">
+            <button onclick="window.print()" style="background-color: #28a745;">Print QR Code</button>
+            <p style="font-size: 12px; margin-top:15px; word-wrap: break-word;"><a id="share-link" href="#" target="_blank">Click to test Customer View</a></p>
+        </div>
+    </div>
+
+    <!-- 2. CUSTOMER REVIEW PANEL (Customer ke liye) -->
+    <div class="container hidden" id="customer-panel">
+        <img id="display-logo" src="" alt="Shop Logo" class="hidden">
+        <h2 id="display-name">Shop Name</h2>
+        <p id="review-text">How was your experience with us?</p>
+
+        <div class="stars" id="star-container">
+            <input type="radio" id="star5" name="rating" value="5" onclick="checkRating(5)"><label for="star5">★</label>
+            <input type="radio" id="star4" name="rating" value="4" onclick="checkRating(4)"><label for="star4">★</label>
+            <input type="radio" id="star3" name="rating" value="3" onclick="checkRating(3)"><label for="star3">★</label>
+            <input type="radio" id="star2" name="rating" value="2" onclick="checkRating(2)"><label for="star2">★</label>
+            <input type="radio" id="star1" name="rating" value="1" onclick="checkRating(1)"><label for="star1">★</label>
+        </div>
+
+        <!-- Updated: Seamless Form (Email app open nahi hoga) -->
+        <form id="feedback-form" class="hidden" method="POST" style="margin-top: 20px;">
+            <p style="color: #d9534f; margin-bottom: 10px; font-size: 14px; font-weight:bold;">We apologize. How can we improve?</p>
+            
+            <!-- Hidden inputs for form setup -->
+            <input type="hidden" name="_subject" value="New Negative Feedback Alert">
+            <input type="hidden" name="_captcha" value="false">
+            <input type="hidden" name="_next" id="next-url" value="">
+
+            <textarea name="Customer_Feedback" placeholder="Please tell us what went wrong..." required></textarea>
+            <button type="submit">Submit Feedback</button>
+        </form>
+
+        <div id="thank-you-msg" class="hidden" style="color: #28a745; font-weight: bold; margin-top: 20px;">
+            Thank you for your valuable feedback! 🙏
+        </div>
+
+        <!-- Updated: Agency Branding (Free Marketing) -->
+        <div class="branding">
+            Powered by <strong>SHC Automations</strong>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const nameParam = urlParams.get('n');
+        const linkParam = urlParams.get('l');
+        const emailParam = urlParams.get('e');
+        const logoParam = urlParams.get('img');
+        const thanksParam = urlParams.get('thanks');
+
+        if (nameParam && linkParam && emailParam) {
+            document.getElementById('admin-panel').classList.add('hidden');
+            document.getElementById('customer-panel').classList.remove('hidden');
+            
+            document.getElementById('display-name').innerText = decodeURIComponent(nameParam);
+            
+            if(logoParam) {
+                document.getElementById('display-logo').src = decodeURIComponent(logoParam);
+                document.getElementById('display-logo').classList.remove('hidden');
+            }
+
+            // Agar customer form submit karke wapas aaya hai
+            if(thanksParam === 'true') {
+                document.getElementById('star-container').classList.add('hidden');
+                document.getElementById('review-text').classList.add('hidden');
+                document.getElementById('thank-you-msg').classList.remove('hidden');
+            } else {
+                // FormSubmit.co ka URL set karna
+                document.getElementById('feedback-form').action = "https://formsubmit.co/" + decodeURIComponent(emailParam);
+                
+                // Submit hone ke baad wapas isi page par laana
+                document.getElementById('next-url').value = window.location.href + "&thanks=true";
+            }
+        }
+
+        function generateQR() {
+            const name = document.getElementById('shopName').value;
+            const logo = document.getElementById('shopLogo').value;
+            const link = document.getElementById('googleLink').value;
+            const email = document.getElementById('shopEmail').value;
+
+            if(!name || !link || !email) {
+                alert("Shop Name, Google Link aur Email zaruri hai!");
+                return;
+            }
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            let customUrl = `${baseUrl}?n=${encodeURIComponent(name)}&l=${encodeURIComponent(link)}&e=${encodeURIComponent(email)}`;
+            if(logo) customUrl += `&img=${encodeURIComponent(logo)}`;
+
+            const qrApi = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(customUrl)}`;
+            
+            document.getElementById('qr-code-img').src = qrApi;
+            document.getElementById('share-link').href = customUrl;
+            document.getElementById('qr-section').classList.remove('hidden');
+        }
+
+        function checkRating(stars) {
+            if (stars >= 4) {
+                window.location.href = decodeURIComponent(linkParam);
+            } else {
+                document.getElementById('feedback-form').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
